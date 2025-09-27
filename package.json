@@ -2,7 +2,7 @@
   "name": "aws-batch-inference-processing ",
   "version": "0.1.0",
   "bin": {
-    "aws-batch-inference-processing": "bin/aws-batch-inference-processing.js"
+    "aws-batch-inference-processing": "bin/bedrock-batch-inference-processing.js"
   },
   "scripts": {
     "build": "tsc",

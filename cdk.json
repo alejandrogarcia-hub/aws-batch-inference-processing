@@ -19,6 +19,7 @@
   "context": {
     "maxSubmittedAndInProgressJobs": 20,
     "bedrockBatchInferenceTimeoutHours": 24,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [

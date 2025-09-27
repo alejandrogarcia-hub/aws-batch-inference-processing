@@ -1,3 +1,15 @@
+/**
+ * @fileoverview AWS CDK Stack for Bedrock Batch Inference Processing Infrastructure
+ *
+ * This module defines the complete infrastructure for orchestrating Amazon Bedrock batch
+ * inference jobs at scale. It creates a serverless architecture that can process millions
+ * of AI/ML inference requests cost-effectively using Bedrock's batch processing capabilities.
+ *
+ * @module bedrock-batch-inference-stack
+ * @see {@link https://docs.aws.amazon.com/cdk/v2/guide/stacks.html} - CDK Stacks documentation
+ * @see {@link https://docs.aws.amazon.com/bedrock/latest/userguide/batch-inference.html} - Bedrock Batch Inference
+ */
+
 import * as path from 'path';
 
 import * as cdk from 'aws-cdk-lib';
@@ -14,24 +26,128 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 
 
+/**
+ * Configuration properties for the Bedrock Batch Inference Stack.
+ *
+ * @interface BedrockBatchInferenceStackProps
+ * @extends {cdk.StackProps}
+ *
+ * @example
+ * ```typescript
+ * new BedrockBatchInferenceStack(app, 'MyStack', {
+ *   maxSubmittedAndInProgressJobs: 10,
+ *   bedrockBatchInferenceTimeoutHours: 24
+ * });
+ * ```
+ */
 export interface BedrockBatchInferenceStackProps extends cdk.StackProps {
+  /**
+   * Maximum number of concurrent Bedrock batch inference jobs.
+   *
+   * Controls the parallelism in the Step Functions Map state and helps prevent
+   * overwhelming the Bedrock service or hitting AWS account quotas.
+   *
+   * @remarks
+   * Typical values range from 1-20 depending on your account limits and expected workload.
+   * Higher values process jobs faster but may hit service quotas.
+   */
   maxSubmittedAndInProgressJobs: number;
+
+  /**
+   * Optional timeout duration in hours for individual batch inference jobs.
+   *
+   * If specified, jobs will be automatically terminated if they exceed this duration.
+   * If not specified, Bedrock's default timeout (typically 72 hours) will be used.
+   *
+   * @remarks
+   * Setting this helps control costs and prevents runaway jobs.
+   * Consider your largest expected batch size when setting this value.
+   */
   bedrockBatchInferenceTimeoutHours?: number;
 }
 
 
+/**
+ * Main CDK Stack class that creates all AWS resources required for Bedrock batch inference processing.
+ *
+ * This stack implements a complete serverless architecture for orchestrating large-scale batch
+ * inference jobs using Amazon Bedrock. The architecture consists of:
+ *
+ * - **Storage Layer**: S3 buckets for input/output data and access logs
+ * - **Compute Layer**: Lambda functions for preprocessing, job management, and postprocessing
+ * - **Orchestration Layer**: Step Functions state machine for workflow coordination
+ * - **Data Layer**: DynamoDB table for job state tracking
+ * - **Event Layer**: EventBridge rules for asynchronous job status monitoring
+ * - **Security Layer**: IAM roles and policies with least-privilege access
+ * - **Monitoring Layer**: CloudWatch alarms for failure detection
+ *
+ * @class BedrockBatchInferenceStack
+ * @extends {cdk.Stack}
+ *
+ * @remarks
+ * The stack is designed to handle millions of inference requests efficiently by:
+ * - Batching requests into JSONL files for cost-effective processing (50% discount)
+ * - Managing concurrency to respect AWS service quotas
+ * - Providing automatic retry and error handling
+ * - Tracking job status asynchronously through EventBridge
+ * - Supporting multiple model types (text generation and embeddings)
+ */
 export class BedrockBatchInferenceStack extends cdk.Stack {
+  /**
+   * Constructs a new instance of the Bedrock Batch Inference Stack.
+   *
+   * @param {Construct} scope - The parent construct (usually an App or Stage)
+   * @param {string} id - The unique identifier for this stack
+   * @param {BedrockBatchInferenceStackProps} props - Configuration properties for the stack
+   *
+   * @throws {Error} Throws if required context variables are missing or invalid
+   */
   constructor(scope: Construct, id: string, props: BedrockBatchInferenceStackProps) {
     super(scope, id, props);
 
+    /**
+     * Path to Lambda function source code directory.
+     * Contains Python code for all Lambda functions in the stack.
+     */
     const lambdaAssetPath = path.join(__dirname, '../lambda');
 
-    // Some regions/accounts (e.g. eu-central-2) still enforce a 3 GB Lambda memory cap by default.
-    // Allow overriding via context if the account’s quota is raised, but default to 3008 MB to avoid
-    // deployment failures.
+    /**
+     * Configure Lambda memory allocations based on regional quotas.
+     *
+     * Some AWS regions (notably eu-central-2) enforce a 3 GB memory limit for Lambda
+     * functions on new accounts. These values can be overridden via CDK context if
+     * your account has higher quotas.
+     *
+     * @remarks
+     * Memory allocation affects:
+     * - Processing speed (more memory = faster CPU)
+     * - Maximum file sizes that can be processed
+     * - Cost (billed per GB-second)
+     */
     const preprocessMemoryMb = Number(this.node.tryGetContext('preprocessFunctionMemoryMb') ?? 3008);
     const postprocessMemoryMb = Number(this.node.tryGetContext('postprocessFunctionMemoryMb') ?? 3008);
 
+    /**
+     * Helper function to create Docker-based Lambda functions with consistent configuration.
+     *
+     * All Lambda functions in this stack use Docker containers to ensure consistent
+     * Python runtime environments and dependency management.
+     *
+     * @param {string} lambdaId - Unique identifier for the Lambda function construct
+     * @param {object} options - Configuration options for the Lambda function
+     * @param {string} options.description - Human-readable description of the function's purpose
+     * @param {string[]} options.cmd - Command array specifying the handler (e.g., ['module.handler'])
+     * @param {Record<string, string>} [options.environment] - Environment variables for the function
+     * @param {cdk.Duration} [options.timeout=5 minutes] - Maximum execution time for the function
+     * @param {number} [options.memorySize] - Memory allocation in MB
+     * @param {cdk.Size} [options.ephemeralStorageSize] - Temporary storage allocation (/tmp)
+     *
+     * @returns {lambda.DockerImageFunction} Configured Docker-based Lambda function
+     *
+     * @remarks
+     * Uses Linux AMD64 platform for compatibility with Lambda runtime
+     * Default timeout is 5 minutes if not specified
+     */
     const createDockerLambda = (
       lambdaId: string,
       options: {
@@ -56,7 +172,19 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       });
     };
 
-    // server access logs bucket for auditing object access
+    /**
+     * S3 bucket for server access logs.
+     *
+     * This bucket stores access logs from the main data bucket, providing an audit trail
+     * of all object operations. Required for compliance and security monitoring.
+     *
+     * @remarks
+     * - Uses S3-managed encryption (SSE-S3)
+     * - Enforces SSL/TLS for all requests
+     * - Blocks all public access
+     * - Enables versioning for log integrity
+     * - Auto-deletes on stack removal (for non-production use)
+     */
     const accessLogsBucket = new s3.Bucket(this, 'accessLogsBucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
@@ -82,7 +210,23 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       resources: [accessLogsBucket.bucketArn],
     }));
 
-    // bucket storing batch job inputs/outputs
+    /**
+     * Main S3 bucket for storing batch inference data.
+     *
+     * This bucket serves as the central storage location for:
+     * - Input JSONL files for batch inference jobs
+     * - Output results from completed inference jobs
+     * - Intermediate Parquet files for efficient data processing
+     * - Uploaded CSV/Parquet datasets from users
+     *
+     * @remarks
+     * Directory structure:
+     * - `/batch_inputs_json/` - JSONL files ready for Bedrock processing
+     * - `/batch_outputs_json/` - Raw outputs from Bedrock jobs
+     * - `/batch_inputs_parquet/` - Parquet format inputs for joining
+     * - `/batch_output_parquet/` - Final processed results in Parquet format
+     * - `/inputs/` - User-uploaded source datasets
+     */
     const bucket = new s3.Bucket(this, 'bucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
@@ -94,6 +238,21 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
+    /**
+     * Helper function to grant granular S3 bucket access to IAM principals.
+     *
+     * Implements least-privilege access by granting permissions only to specific
+     * object prefixes rather than the entire bucket.
+     *
+     * @param {iam.IGrantable} grantee - IAM principal to grant access to
+     * @param {string[]} prefixes - S3 object prefixes to allow access to
+     * @param {string[]} objectActions - S3 actions to allow (e.g., 's3:GetObject')
+     * @param {boolean} [includeDelete=false] - Whether to include delete permissions
+     *
+     * @remarks
+     * This function adds both object-level and bucket-level (ListBucket) permissions
+     * with appropriate conditions to restrict access to specified prefixes only.
+     */
     const grantBucketAccess = (
       grantee: iam.IGrantable,
       prefixes: string[],
@@ -120,13 +279,34 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       }));
     };
 
-    // dynamo table for job arn -> task tokens
+    /**
+     * DynamoDB table for tracking job state and task tokens.
+     *
+     * Maps Bedrock job ARNs to Step Functions task tokens, enabling asynchronous
+     * communication between EventBridge job status updates and the waiting Step Function tasks.
+     *
+     * @remarks
+     * - Partition key: job_arn (string) - Unique identifier for each Bedrock job
+     * - Stores task tokens for callback pattern implementation
+     * - Auto-deletes on stack removal (for non-production use)
+     */
     const taskTable = new dynamodb.TableV2(this, 'taskTable', {
       partitionKey: { name: 'job_arn', type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // service role for bedrock batch inference
+    /**
+     * IAM service role for Bedrock batch inference jobs.
+     *
+     * This role is assumed by the Bedrock service when executing batch inference jobs.
+     * It grants necessary permissions for Bedrock to read input files and write outputs.
+     *
+     * @remarks
+     * Permissions include:
+     * - Read access to input JSONL files
+     * - Write access for output results
+     * - Cross-region model invocation for inference profiles
+     */
     const bedrockServiceRole = new iam.Role(this, 'bedrockServiceRole', {
       assumedBy: new iam.ServicePrincipal('bedrock.amazonaws.com'),
     });
@@ -137,8 +317,21 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       true,
     );
 
-    // allow cross-region inference: https://docs.aws.amazon.com/bedrock/latest/userguide/batch-iam-sr.html#batch-iam-sr-identity
-    // add permissions for additional models as needed
+    /**
+     * Configure model invocation permissions for cross-region inference.
+     *
+     * These permissions allow the Bedrock service to invoke specific foundation models
+     * and inference profiles, including cross-region profiles (e.g., us.* profiles).
+     *
+     * @see {@link https://docs.aws.amazon.com/bedrock/latest/userguide/batch-iam-sr.html} - Bedrock IAM documentation
+     *
+     * @remarks
+     * Add additional model ARNs here as needed for your use case.
+     * Current models:
+     * - Claude 3 Haiku (base model)
+     * - Claude 3.5 Haiku (cross-region inference profile)
+     * - Titan Embeddings V2
+     */
     bedrockServiceRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['bedrock:InvokeModel'],

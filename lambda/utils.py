@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Literal
+from typing import assert_never, Literal
 from uuid import uuid4
 
 import awswrangler as wr
@@ -71,4 +71,4 @@ def load_files_in_chunks(
             yield idx, input_df
 
     else:
-        raise ValueError(f"Unsupported file type: {file_type}")
+        assert_never(file_type)
