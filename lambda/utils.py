@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import assert_never, Literal
+from typing import Literal, assert_never
 from uuid import uuid4
 
 import awswrangler as wr

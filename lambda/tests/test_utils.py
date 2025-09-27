@@ -91,8 +91,12 @@ class LoadFilesInChunksTests(unittest.TestCase):
         )
 
     def test_unsupported_type_raises(self) -> None:
-        with self.assertRaises(ValueError):
-            list(load_files_in_chunks("s3://bucket/input.txt", "txt", chunk_size=10))
+        # assert_never raises AssertionError for unsupported file types
+        with self.assertRaises(AssertionError) as ctx:
+            list(load_files_in_chunks("s3://bucket/input.txt", "txt", chunk_size=10))  # type: ignore[arg-type]
+
+        # Verify the error message indicates the unsupported type
+        self.assertIn("txt", str(ctx.exception))
 
 
 if __name__ == "__main__":

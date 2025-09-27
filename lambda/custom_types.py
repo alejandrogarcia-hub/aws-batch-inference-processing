@@ -76,7 +76,7 @@ class JobInput(_BaseModel):
     )
 
     @classmethod
-    def safe_validate(cls, data: dict[str, Any]) -> "JobInput":
+    def safe_validate(cls, data: dict[str, Any]) -> JobInput:
         """Validate incoming payloads tolerating partial data (used in tests & helper calls)."""
 
         merged = {

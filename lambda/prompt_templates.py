@@ -1,4 +1,3 @@
-
 """
 Add prompt templates for text-based models here.
 
@@ -7,9 +6,10 @@ The following dict maps a `prompt_id` to a prompt template.
 Supply the prompt_id in the state machine input and ensure that your CSV file
 has columns for the required formatting keys (enclosed in curly braces {}) in that template.
 
-e.g. For prompt_id=`joke_about_topic`, your input CSV must include a `topic` column in order to 
+e.g. For prompt_id=`joke_about_topic`, your input CSV must include a `topic` column in order to
 fill that key.
 """
+
 prompt_id_to_template: dict[str, str] = {
     "joke_about_topic": """Tell me a joke about {topic} in less than 50 words.""",
     "sentiment_classifier": """

@@ -197,7 +197,9 @@ class AnthropicProcessor(BaseProcessor):
         model_output = output_data.get("modelOutput", {"content": [{"text": None}]})
         return {
             "record_id": output_data["recordId"],
-            "response": model_output["content"][-1]["text"],  # Last content block's text
+            "response": model_output["content"][-1][
+                "text"
+            ],  # Last content block's text
         }
 
 
@@ -278,7 +280,9 @@ class TitanV2Processor(BaseProcessor):
         """
         return {
             "record_id": output_data["recordId"],
-            "embedding": output_data["modelOutput"]["embedding"],  # Dense vector representation
+            "embedding": output_data["modelOutput"][
+                "embedding"
+            ],  # Dense vector representation
         }
 
 

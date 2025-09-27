@@ -33,7 +33,6 @@ from collections.abc import Iterable
 import awswrangler as wr
 import boto3
 import pandas as pd
-
 import utils
 from custom_types import TaskItem
 from processor import get_processor_for_model_id

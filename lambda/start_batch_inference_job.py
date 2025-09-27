@@ -26,9 +26,8 @@ import os
 from typing import Any
 
 import boto3
-from botocore.config import Config
-
 import utils
+from botocore.config import Config
 from custom_types import JobConfig, TaskItem
 
 # Configure structured logging for CloudWatch monitoring
@@ -40,7 +39,7 @@ logger = utils.get_logger()
 config = Config(
     retries={
         "max_attempts": 100,  # High retry count for resilience
-        "mode": "standard"    # Exponential backoff with jitter
+        "mode": "standard",  # Exponential backoff with jitter
     }
 )
 
@@ -102,21 +101,21 @@ def lambda_handler(event, context) -> dict[str, Any]:
     # Submit batch inference job to Bedrock
     # This is an asynchronous operation - the job runs in the background
     job_arn = bedrock_client.create_model_invocation_job(
-        jobName=payload.job_name,                        # Unique job identifier
-        roleArn=os.environ["BEDROCK_ROLE_ARN"],         # IAM role for Bedrock to access S3
-        modelId=payload.model_id,                        # Model to use for inference
+        jobName=payload.job_name,  # Unique job identifier
+        roleArn=os.environ["BEDROCK_ROLE_ARN"],  # IAM role for Bedrock to access S3
+        modelId=payload.model_id,  # Model to use for inference
         inputDataConfig={
             "s3InputDataConfig": {
-                "s3InputFormat": "JSONL",                # Bedrock expects JSONL format
-                "s3Uri": payload.s3_uri_input,           # Location of preprocessed input
+                "s3InputFormat": "JSONL",  # Bedrock expects JSONL format
+                "s3Uri": payload.s3_uri_input,  # Location of preprocessed input
             }
         },
         outputDataConfig={
             "s3OutputDataConfig": {
-                "s3Uri": payload.s3_uri_output,          # Directory for job outputs
+                "s3Uri": payload.s3_uri_output,  # Directory for job outputs
             }
         },
-        **additional_kwargs,                             # Timeout and other optional params
+        **additional_kwargs,  # Timeout and other optional params
     )["jobArn"]
     logger.info(f"Started job: {job_arn}")
 
@@ -130,13 +129,13 @@ def lambda_handler(event, context) -> dict[str, Any]:
     # Create task tracking record with all necessary metadata
     # This record enables async job completion callbacks and postprocessing
     task_item = TaskItem(
-        job_arn=job_arn,                               # Unique job identifier for status queries
-        model_id=payload.model_id,                     # Model used (needed for output parsing)
-        input_parquet_path=payload.input_parquet_path, # Original data for joining with outputs
-        s3_uri_output=payload.s3_uri_output,           # Output location for postprocessing
-        status=job_details["status"],                  # Initial status (InProgress, Submitted)
-        error_message=None,                            # Will be populated if job fails
-        task_token=task_token,                         # Step Functions callback token
+        job_arn=job_arn,  # Unique job identifier for status queries
+        model_id=payload.model_id,  # Model used (needed for output parsing)
+        input_parquet_path=payload.input_parquet_path,  # Original data for joining with outputs
+        s3_uri_output=payload.s3_uri_output,  # Output location for postprocessing
+        status=job_details["status"],  # Initial status (InProgress, Submitted)
+        error_message=None,  # Will be populated if job fails
+        task_token=task_token,  # Step Functions callback token
     )
 
     # Store task in DynamoDB for EventBridge rules to retrieve
