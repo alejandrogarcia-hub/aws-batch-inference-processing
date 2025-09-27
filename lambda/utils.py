@@ -1,19 +1,20 @@
-import re
-from uuid import uuid4
 import logging
-import awswrangler as wr
+import re
 from typing import Literal
+from uuid import uuid4
+
+import awswrangler as wr
 
 
 def create_job_name(job_name_prefix: str, index: int) -> str:
     """
     Cleans input string to conform to pattern: [a-zA-Z0-9]{1,63}(-*[a-zA-Z0-9\\+\\-\\.]){0,63}
     """
-    suffix = f'-part-{str(index).zfill(4)}-{str(uuid4())[:6]}'
-    job_name = job_name_prefix[:63-len(suffix)] + suffix
+    suffix = f"-part-{str(index).zfill(4)}-{str(uuid4())[:6]}"
+    job_name = job_name_prefix[: 63 - len(suffix)] + suffix
 
     # Remove invalid characters, keeping only allowed ones
-    return re.sub(r'[^a-zA-Z0-9\-]', '', job_name)
+    return re.sub(r"[^a-zA-Z0-9\-]", "", job_name)
 
 
 def split_s3_uri(uri: str) -> tuple[str, str]:
@@ -25,11 +26,11 @@ def split_s3_uri(uri: str) -> tuple[str, str]:
     Returns:
         Tuple of (bucket, key)
     """
-    if not uri.startswith('s3://'):
+    if not uri.startswith("s3://"):
         raise ValueError("URI must start with 's3://'")
 
     path = uri[5:]  # Remove 's3://'
-    parts = path.split('/', 1)
+    parts = path.split("/", 1)
     if len(parts) != 2:
         raise ValueError("URI must contain bucket and key")
 
@@ -58,11 +59,15 @@ def load_files_in_chunks(
     """
 
     if file_type == "csv":
-        for idx, input_df in enumerate(wr.s3.read_csv(s3_uri, chunksize=chunk_size, **kwargs)):
+        for idx, input_df in enumerate(
+            wr.s3.read_csv(s3_uri, chunksize=chunk_size, **kwargs)
+        ):
             yield idx, input_df
 
     elif file_type == "parquet":
-        for idx, input_df in enumerate(wr.s3.read_parquet(s3_uri, chunked=chunk_size, **kwargs)):
+        for idx, input_df in enumerate(
+            wr.s3.read_parquet(s3_uri, chunked=chunk_size, **kwargs)
+        ):
             yield idx, input_df
 
     else:

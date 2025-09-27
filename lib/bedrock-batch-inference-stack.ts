@@ -26,6 +26,12 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
 
     const lambdaAssetPath = path.join(__dirname, '../lambda');
 
+    // Some regions/accounts (e.g. eu-central-2) still enforce a 3 GB Lambda memory cap by default.
+    // Allow overriding via context if the account’s quota is raised, but default to 3008 MB to avoid
+    // deployment failures.
+    const preprocessMemoryMb = Number(this.node.tryGetContext('preprocessFunctionMemoryMb') ?? 3008);
+    const postprocessMemoryMb = Number(this.node.tryGetContext('postprocessFunctionMemoryMb') ?? 3008);
+
     const createDockerLambda = (
       lambdaId: string,
       options: {
@@ -62,7 +68,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
 
     accessLogsBucket.addToResourcePolicy(new iam.PolicyStatement({
       sid: 'AWSLogDeliveryWrite',
-      principals: [new iam.ServicePrincipal('logdelivery.s3.amazonaws.com')],
+      principals: [new iam.ServicePrincipal('delivery.logs.amazonaws.com')],
       actions: ['s3:PutObject'],
       resources: [accessLogsBucket.arnForObjects('batch-inference/*')],
       conditions: {
@@ -71,7 +77,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
     }));
     accessLogsBucket.addToResourcePolicy(new iam.PolicyStatement({
       sid: 'AWSLogDeliveryCheck',
-      principals: [new iam.ServicePrincipal('logdelivery.s3.amazonaws.com')],
+      principals: [new iam.ServicePrincipal('delivery.logs.amazonaws.com')],
       actions: ['s3:GetBucketAcl', 's3:ListBucket'],
       resources: [accessLogsBucket.bucketArn],
     }));
@@ -152,7 +158,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
         HF_HOME: '/tmp/huggingface'
       },
       timeout: cdk.Duration.minutes(15),
-      memorySize: 10240,  // recommend a large amount of memory if using max. batch sizes (50k records)
+      memorySize: preprocessMemoryMb,
       ephemeralStorageSize: cdk.Size.mebibytes(512),
     });
     grantBucketAccess(
@@ -195,7 +201,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
     startBatchInferenceFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:CreateModelInvocationJob'],
       effect: iam.Effect.ALLOW,
-      resources: modelResourceArns,
+      resources: [...modelResourceArns, bedrockJobArn],
     }));
     startBatchInferenceFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:GetModelInvocationJob'],
@@ -235,7 +241,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
     const postprocessFunction = createDockerLambda('postprocessFunction', {
       description: 'Process the bedrock batch output files',
       cmd: ['postprocess.lambda_handler'],
-      memorySize: 10240,
+      memorySize: postprocessMemoryMb,
       environment: {
         BUCKET_NAME: bucket.bucketName,
       },
@@ -291,7 +297,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       .next(postprocessMap.itemProcessor(postprocessTask));
 
     // state machine
-    const stepFunction = new sfn.StateMachine(this, 'bedrockBatchOrchestratorSfn', {
+    const stepFunction = new sfn.StateMachine(this, 'bedrockBatchInferenceProcessingSfn', {
       definitionBody: sfn.DefinitionBody.fromChainable(chain),
     });
 
@@ -304,7 +310,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       evaluationPeriods: 1,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-      alarmDescription: 'Triggers when the Bedrock batch orchestrator reports a failed execution.',
+      alarmDescription: 'Triggers when the Bedrock batch inference processing workflow reports a failed execution.',
     });
 
     // output the state machine name & bucket name

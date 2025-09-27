@@ -60,27 +60,37 @@ You will need to make sure that your input dataset has a column for each formatt
 
 Note that prompt templates are not used for embedding model-based jobs.
 
-5. Deploy the CDK stack.
+5. (Recommended) Run `npm run cdk -- synth` to synthesize the AWS CloudFormation template that will be deployed. This lets you review the generated infrastructure-as-code output before provisioning anything in your account.
 
-`npm run cdk deploy`
+6. (First time per account/region) Bootstrap the AWS environment so the CDK can provision resources. Replace `<ACCOUNT_ID>` and `<REGION>` with your deployment target.
+
+`npm run cdk -- bootstrap aws://<ACCOUNT_ID>/<REGION>`
+
+Bootstrapping deploys the shared `CDKToolkit` stack that CDK apps depend on—it provisions an S3 bucket (template/assets storage), an ECR repo (Docker assets), deployment roles, and registers the bootstrap version in SSM Parameter Store. Run it once per account/region before your first deploy.
+
+7. Deploy the CDK stack.
+
+`npm run cdk -- deploy`
+
+For verbose streaming of CloudFormation events (helpful if a step seems hung), use `npm run cdk -- deploy --progress events`.
 
 Take note of the CFN Outputs denoting the names of the bucket and step function:
 
 ```
-✅  BedrockBatchOrchestratorStack
+✅  BedrockBatchInferenceProcessingStack
 
 ✨  Deployment time: 23.16s
 
 Outputs:
-BedrockBatchOrchestratorStack.bucketName = batch-inference-bucket-<YOUR_ACCOUNT_ID>
-BedrockBatchOrchestratorStack.stepFunctionName = bedrockBatchOrchestratorSfnE5E2B976-4yznxekguxxm
+BedrockBatchInferenceProcessingStack.bucketName = batch-inference-bucket-<YOUR_ACCOUNT_ID>
+BedrockBatchInferenceProcessingStack.stepFunctionName = bedrockBatchInferenceProcessingSfnE5E2B976-4yznxekguxxm
 Stack ARN:
-arn:aws:cloudformation:us-east-1:<YOUR_ACCOUNT_ID>:stack/BedrockBatchOrchestratorStack/0787ba80-b0cb-11ef-a481-0affd4b49c99
+arn:aws:cloudformation:us-east-1:<YOUR_ACCOUNT_ID>:stack/BedrockBatchInferenceProcessingStack/0787ba80-b0cb-11ef-a481-0affd4b49c99
 
 ✨  Total time: 26.74s
 ```
 
-6. As your input dataset, you can either use a Hugging Face dataset ID or point directly to a dataset in S3 (CSV or parquet formats are currently supported).
+8. As your input dataset, you can either use a Hugging Face dataset ID or point directly to a dataset in S3 (CSV or parquet formats are currently supported).
 
 **Hugging Face Dataset**
 
@@ -92,7 +102,7 @@ Upload an input CSV or parquet file to the S3 bucket and copy the S3 URI.
 
 e.g. `aws s3 cp topics.csv s3://batch-inference-bucket-<YOUR_ACCOUNT_ID>/inputs/jokes/topics.csv`
 
-7. Open up your step function in AWS Console and submit an input with the following structure. You either need to supply a `dataset_id` and `split` (for Hugging Face datasets) or an `s3_uri` (for S3 datasets):
+9. Open up your step function in AWS Console and submit an input with the following structure. You either need to supply a `dataset_id` and `split` (for Hugging Face datasets) or an `s3_uri` (for S3 datasets):
 
 e.g. for Anthropic Models with an S3 Input:
 
@@ -120,11 +130,62 @@ e.g. for a Hugging Face dataset
 }
 ```
 
+For a quick smoke test that stays within free credits, run:
+
+```json
+{
+  "dataset_id": "w601sxs/simpleCoT",
+  "split": "train",
+  "job_name_prefix": "demo-run-001",
+  "model_id": "anthropic.claude-3-haiku-20240307-v1:0",
+  "prompt_id": "question_answering",
+  "max_num_jobs": 1,
+  "max_records_total": 100
+}
+```
+
 Note that we supplied a `dataset_id` and `split` to reference. The `question_answering` prompt template in [`prompt_templates.py`](lambda/prompt_templates.py) has a formatting key called `source` to match the name of the appropriate column in the referenced [dataset](https://huggingface.co/datasets/w601sxs/simpleCoT).
 
 We also have optional keys for `max_num_jobs` (to limit the total number of jobs - useful for testing on a smaller scale) and `max_records_per_batch`.
 
-By default the preprocessing Lambda processes **all** records in the dataset. Provide `max_records_total` (or set the `MAX_TOTAL_RECORDS` environment variable before deployment) if you want to cap the number of records for smoke tests or cost-control purposes.
+By default the preprocessing Lambda processes **all** records in the dataset.
+
+### Discovering Available Models
+
+Use the AWS CLI to check which Bedrock models are available in your target region:
+
+```
+aws bedrock list-foundation-models --region <REGION> --output table
+```
+
+To list only models your account currently has access to:
+
+```
+aws bedrock list-foundation-models \
+    --region <REGION> \
+    --query "modelSummaries[?modelAccessType=='GRANTED'].[{Id:modelId, Provider:providerName, ModelAccessType:modelAccessType}]" \
+    --output table
+```
+
+For the Zurich region specifically:
+
+``
+aws bedrock list-foundation-models \
+    --region eu-central-2 \
+    --query "modelSummaries[?modelAccessType=='GRANTED'].[{Id:modelId, Provider:providerName, ModelAccessType:modelAccessType}]" \
+    --output table
+```
+
+To inspect a specific model for its ARN and metadata:
+
+```
+aws bedrock get-foundation-model --model-identifier <MODEL_ID> --region <REGION>
+```
+
+Provide `max_records_total` (or set the `MAX_TOTAL_RECORDS` environment variable before deployment) if you want to cap the number of records for smoke tests or cost-control purposes.
+
+> **Regional Lambda quotas:**
+Some regions (for example `eu-central-2`) enforce a 3 GB memory ceiling for Lambda functions on new accounts. The stack defaults the preprocess/postprocess functions to 3008 MB to avoid deployment failures. If your account has a higher quota, override it via CDK context: `npm run cdk -- deploy --context preprocessFunctionMemoryMb=6000 --context postprocessFunctionMemoryMb=6000`.
 
 To generate embeddings with a model like Titan-V2 embeddings, you do not need to provide a `prompt_id`, but you do need to ensure that your input CSV file has a column called `input_text` with the text you would like to embed.
 

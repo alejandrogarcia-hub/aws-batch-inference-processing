@@ -1,4 +1,3 @@
-from typing import Dict
 
 """
 Add prompt templates for text-based models here.
@@ -11,15 +10,15 @@ has columns for the required formatting keys (enclosed in curly braces {}) in th
 e.g. For prompt_id=`joke_about_topic`, your input CSV must include a `topic` column in order to 
 fill that key.
 """
-prompt_id_to_template: Dict[str, str] = {
-    'joke_about_topic': '''Tell me a joke about {topic} in less than 50 words.''',
-    'sentiment_classifier': '''
+prompt_id_to_template: dict[str, str] = {
+    "joke_about_topic": """Tell me a joke about {topic} in less than 50 words.""",
+    "sentiment_classifier": """
         Classify the sentiment of the following text as `positive`, `negative`, or `neutral`. 
         Just give the sentiment, no preamble or explanation.
         
         Text:
-        {input_text}''',
-    'question_answering': '''You are an AI assistant tasked with providing accurate and justified answers to users' questions.
+        {input_text}""",
+    "question_answering": """You are an AI assistant tasked with providing accurate and justified answers to users' questions.
     
     You will be given a task, and you should respond with a chain-of-thought surrounded by <thinking> tags, then a final answer in <answer> tags.
     
@@ -43,5 +42,5 @@ prompt_id_to_template: Dict[str, str] = {
     {source}
     </task>
     
-    '''
+    """,
 }

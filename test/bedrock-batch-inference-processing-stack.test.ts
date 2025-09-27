@@ -3,7 +3,7 @@ import { Match, Template } from 'aws-cdk-lib/assertions';
 
 import { BedrockBatchInferenceStack } from '../lib/bedrock-batch-inference-stack';
 
-describe('BedrockBatchOrchestratorStack', () => {
+describe('BedrockBatchInferenceProcessingStack', () => {
   it('synthesizes the core resources', () => {
     const app = new App();
     const stack = new BedrockBatchInferenceStack(app, 'TestStack', {

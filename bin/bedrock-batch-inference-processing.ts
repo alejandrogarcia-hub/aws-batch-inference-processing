@@ -12,7 +12,7 @@ if (maxSubmittedAndInProgressJobs === undefined) {
 
 const bedrockBatchInferenceTimeoutHours = app.node.tryGetContext('bedrockBatchInferenceTimeoutHours');
 
-new BedrockBatchInferenceStack(app, 'BedrockBatchOrchestratorStack', {
+new BedrockBatchInferenceStack(app, 'BedrockBatchInferenceProcessingStack', {
   maxSubmittedAndInProgressJobs: Number(maxSubmittedAndInProgressJobs),
   bedrockBatchInferenceTimeoutHours: bedrockBatchInferenceTimeoutHours !== undefined
     ? Number(bedrockBatchInferenceTimeoutHours)

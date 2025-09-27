@@ -12,4 +12,12 @@ assets/
 downloads/
 
 NOTES.md
+COST-INPUT.md
 .env
+.python-version
+.markdownlint.json
+
+BATCH_INFERENCE_ACCESS.md
+BEDROCK_ACCESS_VERIFICATION.md
+IMPROVEMENTS.md
+COST-INPUT.md
