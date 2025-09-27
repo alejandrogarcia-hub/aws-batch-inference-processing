@@ -22,11 +22,12 @@ from uuid import uuid4
 
 import awswrangler as wr
 import boto3
+from datasets import load_dataset
 import pandas as pd
+
 import prompt_templates as pt
 import utils
 from custom_types import JobConfig, JobConfigList, JobInput
-from datasets import load_dataset
 from processor import get_processor_for_model_id
 
 
@@ -465,7 +466,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             model_id=model_id,
             job_name=job_name,
             input_parquet_path=input_parquet_path,  # Original data for postprocessing joins
-            s3_uri_input=write_jsonl_to_s3(records, input_key),  # Formatted JSONL for Bedrock
+            s3_uri_input=write_jsonl_to_s3(
+                records, input_key
+            ),  # Formatted JSONL for Bedrock
             s3_uri_output=output_path,  # Directory where Bedrock will write results
         )
         jobs.append(job_config)
