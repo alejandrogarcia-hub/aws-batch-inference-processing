@@ -321,3 +321,5 @@ The script will mirror both the JSON and Parquet outputs into the specified dest
 ## References
 
 - [Bedrock Batch Job Orchestration](https://aws.amazon.com/blogs/machine-learning/build-a-serverless-amazon-bedrock-batch-job-orchestration-workflow-using-aws-step-functions/)
+
+- [Bedrock Batch Inference](https://docs.aws.amazon.com/bedrock/latest/userguide/batch-inference.html)

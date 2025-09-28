@@ -457,7 +457,8 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       true,
     );
 
-    // step function tasks
+    // ENTRY: step function tasks
+    // follow tasks to reach the next phase
     const preprocessTask = new tasks.LambdaInvoke(this, 'preprocessTask', {
       lambdaFunction: preprocessFunction,
       outputPath: '$.Payload',
