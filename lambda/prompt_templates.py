@@ -8,6 +8,8 @@ has columns for the required formatting keys (enclosed in curly braces {}) in th
 
 e.g. For prompt_id=`joke_about_topic`, your input CSV must include a `topic` column in order to
 fill that key.
+e.g., For prompt_id=`sentiment_classifier`, your input CSV must include a `input_text` column in order to
+fill that key.
 """
 
 prompt_id_to_template: dict[str, str] = {
