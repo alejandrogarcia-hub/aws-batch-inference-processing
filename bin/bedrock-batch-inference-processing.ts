@@ -56,6 +56,22 @@ if (maxSubmittedAndInProgressJobs === undefined) {
 }
 
 /**
+ * Retrieve the memory allocation in MB for the preprocess lambda function.
+ */
+const preprocessFunctionMemoryMb = app.node.tryGetContext('preprocessFunctionMemoryMb');
+if (preprocessFunctionMemoryMb === undefined) {
+  throw new Error('Missing required context variable: preprocessFunctionMemoryMb');
+}
+
+/**
+ * Retrieve the memory allocation in MB for the postprocess lambda function.
+ */
+const postprocessFunctionMemoryMb = app.node.tryGetContext('postprocessFunctionMemoryMb');
+if (postprocessFunctionMemoryMb === undefined) {
+  throw new Error('Missing required context variable: postprocessFunctionMemoryMb');
+}
+
+/**
  * Retrieve the optional timeout duration for Bedrock batch inference jobs.
  * If specified, this sets a maximum duration (in hours) for batch jobs to complete
  * before they are automatically terminated.
@@ -90,6 +106,16 @@ new BedrockBatchInferenceStack(app, 'BedrockBatchInferenceProcessingStack', {
    * simultaneously. This prevents quota exhaustion and manages concurrency.
    */
   maxSubmittedAndInProgressJobs: Number(maxSubmittedAndInProgressJobs),
+
+  /**
+   * Memory allocation in MB for the preprocess lambda function.
+   */
+  preprocessFunctionMemoryMb: Number(preprocessFunctionMemoryMb),
+
+  /**
+   * Memory allocation in MB for the postprocess lambda function.
+   */
+  postprocessFunctionMemoryMb: Number(postprocessFunctionMemoryMb),
 
   /**
    * Optional timeout for batch inference jobs in hours.

@@ -18,6 +18,8 @@
   },
   "context": {
     "maxSubmittedAndInProgressJobs": 20,
+    "preprocessFunctionMemoryMb": 3008,
+    "postprocessFunctionMemoryMb": 3008,
     "bedrockBatchInferenceTimeoutHours": 24,
     "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,

@@ -20,7 +20,8 @@ There is also a quota related to the maximum number of concurrent in-progress jo
 
 > For example, if you have a job performing sentiment analysis on 500K tweets, that means you will need to execute at least 500K / 50K => 10 individual batch inference jobs. If the quota for the maximum number of concurrent jobs is only 5, you will need to manage this capacity efficiently (and ideally, in an automated fashion).
 
-Finally, you will likely want to perform some light post-processing on the batch outputs (another large JSONL file) in order to parse the responses and join the output back to the original input, if necessary (e.g. given some text to embed, you will need a way to link the output vector back to the original text).
+Finally, you will likely want to perform some light post-processing on the batch outputs (another large JSONL file) in order to parse the responses and join the output back to the original input,
+if necessary (e.g. given some text to embed, you will need a way to link the output vector back to the original text).
 
 ## Solution
 
@@ -176,7 +177,7 @@ e.g. for Anthropic Models with an S3 Input:
   "dataset_id": "w601sxs/simpleCoT",
   "split": "train",
   "job_name_prefix": "test-cot-job-1",
-  "model_id": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+  "model_id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
   "prompt_id": "question_answering",
   "max_num_jobs": 1
 }
@@ -238,7 +239,8 @@ aws bedrock get-foundation-model --model-identifier <MODEL_ID> --region <REGION>
 Provide `max_records_total` (or set the `MAX_TOTAL_RECORDS` environment variable before deployment) if you want to cap the number of records for smoke tests or cost-control purposes.
 
 > **Regional Lambda quotas:**
-Some regions (for example `eu-central-2`) enforce a 3 GB memory ceiling for Lambda functions on new accounts. The stack defaults the preprocess/postprocess functions to 3008 MB to avoid deployment failures. If your account has a higher quota, override it via CDK context: `npm run cdk -- deploy --context preprocessFunctionMemoryMb=6000 --context postprocessFunctionMemoryMb=6000`.
+Some regions (for example `eu-central-2`) enforce a 3 GB memory ceiling for Lambda functions on new accounts. The stack defaults the preprocess/postprocess functions to 3008 MB to avoid deployment failures.
+If your account has a higher quota, override it via CDK context: `npm run cdk -- deploy --context preprocessFunctionMemoryMb=6000 --context postprocessFunctionMemoryMb=6000`.
 
 To generate embeddings with a model like Titan-V2 embeddings, you do not need to provide a `prompt_id`, but you do need to ensure that your input CSV file has a column called `input_text` with the text you would like to embed.
 
@@ -315,3 +317,7 @@ scripts/download_results.sh batch-inference-bucket-123456789012 my-test-run outp
 ```
 
 The script will mirror both the JSON and Parquet outputs into the specified destination (defaulting to `downloads/<job-prefix>`).
+
+## References
+
+- [Bedrock Batch Job Orchestration](https://aws.amazon.com/blogs/machine-learning/build-a-serverless-amazon-bedrock-batch-job-orchestration-workflow-using-aws-step-functions/)

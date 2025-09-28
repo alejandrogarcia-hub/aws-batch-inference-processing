@@ -54,6 +54,16 @@ export interface BedrockBatchInferenceStackProps extends cdk.StackProps {
   maxSubmittedAndInProgressJobs: number;
 
   /**
+   * Memory allocation in MB for the preprocess function.
+   */
+  preprocessFunctionMemoryMb: number;
+
+  /**
+   * Memory allocation in MB for the postprocess function.
+   */
+  postprocessFunctionMemoryMb: number;
+
+  /**
    * Optional timeout duration in hours for individual batch inference jobs.
    *
    * If specified, jobs will be automatically terminated if they exceed this duration.
@@ -124,8 +134,8 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
      * - Maximum file sizes that can be processed
      * - Cost (billed per GB-second)
      */
-    const preprocessMemoryMb = Number(this.node.tryGetContext('preprocessFunctionMemoryMb') ?? 3008);
-    const postprocessMemoryMb = Number(this.node.tryGetContext('postprocessFunctionMemoryMb') ?? 3008);
+    const preprocessMemoryMb = Number(props.preprocessFunctionMemoryMb ?? 3008);
+    const postprocessMemoryMb = Number(props.postprocessFunctionMemoryMb ?? 3008);
 
     /**
      * Helper function to create Docker-based Lambda functions with consistent configuration.
@@ -337,7 +347,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
       actions: ['bedrock:InvokeModel'],
       resources: [
         'arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0',
-        'arn:aws:bedrock:*::inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0',
+        'arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0',
         'arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0',
       ],
     }));
@@ -382,7 +392,7 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
 
     const modelResourceArns = [
       'arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0',
-      'arn:aws:bedrock:*::inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0',
+      'arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0',
       'arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0',
     ];
     const bedrockJobArn = cdk.Stack.of(this).formatArn({
@@ -403,8 +413,8 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
     }));
     startBatchInferenceFunction.addToRolePolicy(new iam.PolicyStatement({
       actions: ['iam:PassRole'],
-      resources: [bedrockServiceRole.roleArn], // Reference to your service role
       effect: iam.Effect.ALLOW,
+      resources: [bedrockServiceRole.roleArn], // Reference to your service role
     }));
 
     // event source for completed jobs
