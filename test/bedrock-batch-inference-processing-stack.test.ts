@@ -8,6 +8,8 @@ describe('BedrockBatchInferenceProcessingStack', () => {
     const app = new App();
     const stack = new BedrockBatchInferenceStack(app, 'TestStack', {
       maxSubmittedAndInProgressJobs: 1,
+      preprocessFunctionMemoryMb: 3008,
+      postprocessFunctionMemoryMb: 3008,
     });
 
     const template = Template.fromStack(stack);
