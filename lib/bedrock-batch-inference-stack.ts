@@ -487,6 +487,10 @@ export class BedrockBatchInferenceStack extends cdk.Stack {
     const postprocessTask = new tasks.LambdaInvoke(this, 'postprocessTask', {
       lambdaFunction: postprocessFunction,
       outputPath: '$.Payload',
+    }).addRetry({
+      maxAttempts: 3,
+      backoffRate: 2,
+      interval: cdk.Duration.seconds(5),
     });
 
     // step function
