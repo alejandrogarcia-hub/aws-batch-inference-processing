@@ -62,12 +62,17 @@ def lambda_handler(event, context) -> dict[str, Any]:
         input_parquet_path=task_item_ddb.input_parquet_path,
         s3_uri_output=task_item_ddb.s3_uri_output,
         status=job_status,
-        error_message=job_status.value
-        if job_status in BATCH_INFERENCE_ERROR_STATES
-        else None,
+        error_message=(
+            job_status.value if job_status in BATCH_INFERENCE_ERROR_STATES else None
+        ),
         task_token=task_token,
     )
     task_item_dict = task_item.model_dump(exclude_none=True)
+
+    # update task table
+    logger.info(f"Updating dynamo item with job_arn: {job_arn}")
+    task_table.put_item(Item=task_item_dict)
+
     # send task response to async step function state
     if job_status == JobStatus.COMPLETED:
         logger.info(
@@ -92,9 +97,5 @@ def lambda_handler(event, context) -> dict[str, Any]:
         sfn_client.send_task_heartbeat(
             taskToken=task_token,
         )
-
-    # update task table
-    logger.info(f"Updating dynamo item with job_arn: {job_arn}")
-    task_table.put_item(Item=task_item_dict)
 
     return task_item_dict
