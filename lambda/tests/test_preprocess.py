@@ -7,7 +7,6 @@ following AAA (Arrange-Act-Assert) pattern and unit testing best practices.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import types
 import unittest
@@ -38,11 +37,10 @@ class _StubDataFrame:
             keys = list(records.keys())
             length = len(next(iter(records.values()), []))
             self._records = [
-                {key: records[key][i] for key in keys}
-                for i in range(length)
+                {key: records[key][i] for key in keys} for i in range(length)
             ]
             records = []
-        elif hasattr(records, '__iter__') and not isinstance(records, (str, bytes)):
+        elif hasattr(records, "__iter__") and not isinstance(records, (str, bytes)):
             records = list(records)
         else:
             records = [records]
@@ -90,6 +88,7 @@ class _StubDataFrame:
 
         if key not in self._columns:
             self._columns.append(key)
+
 
 pandas_module = sys.modules.get("pandas")
 if pandas_module is None:
@@ -242,7 +241,10 @@ class TestResolvePromptConfiguration(unittest.TestCase):
 
             self.assertIn("prompt_id", str(context.exception))
 
-    @patch('preprocess.pt.prompt_id_to_template', {"prompt1": "Template 1", "prompt2": "Template 2", "prompt3": "Template 3"})
+    @patch(
+        "preprocess.pt.prompt_id_to_template",
+        {"prompt1": "Template 1", "prompt2": "Template 2", "prompt3": "Template 3"},
+    )
     def test_should_raise_error_for_unknown_prompt_id(self):
         """It should raise ValueError and list available prompts for unknown ID."""
         # Arrange
@@ -259,11 +261,13 @@ class TestResolvePromptConfiguration(unittest.TestCase):
         self.assertIn("prompt2", error_msg)
         self.assertIn("prompt3", error_msg)
 
-    @patch('preprocess.pt.prompt_id_to_template')
+    @patch("preprocess.pt.prompt_id_to_template")
     def test_should_extract_fields_from_template(self, mock_templates):
         """It should extract placeholder fields from prompt template."""
         # Arrange
-        mock_templates.__getitem__.return_value = "Tell me about {topic} in {style} style"
+        mock_templates.__getitem__.return_value = (
+            "Tell me about {topic} in {style} style"
+        )
         model_type = "text"
         event = {"prompt_id": "test_prompt"}
 
@@ -274,7 +278,7 @@ class TestResolvePromptConfiguration(unittest.TestCase):
         self.assertEqual(template, "Tell me about {topic} in {style} style")
         self.assertEqual(fields, {"topic", "style"})
 
-    @patch('preprocess.pt.prompt_id_to_template')
+    @patch("preprocess.pt.prompt_id_to_template")
     def test_should_handle_complex_templates(self, mock_templates):
         """It should handle templates with complex formatting."""
         # Arrange
@@ -403,11 +407,11 @@ class TestWriteJsonlToS3(unittest.TestCase):
 
         # Patch BUCKET_NAME if it's None (not set from environment)
         if preprocess.BUCKET_NAME is None:
-            self.bucket_patch = patch('preprocess.BUCKET_NAME', 'test-bucket')
+            self.bucket_patch = patch("preprocess.BUCKET_NAME", "test-bucket")
             self.bucket_patch.start()
             self.addCleanup(self.bucket_patch.stop)
 
-    @patch('preprocess.s3_client')
+    @patch("preprocess.s3_client")
     def test_should_write_records_as_jsonl(self, mock_s3_client):
         """It should write records as JSONL format to S3."""
         # Arrange
@@ -438,7 +442,7 @@ class TestWriteJsonlToS3(unittest.TestCase):
             parsed = json.loads(line)
             self.assertEqual(parsed["id"], i + 1)
 
-    @patch('preprocess.s3_client')
+    @patch("preprocess.s3_client")
     def test_should_handle_empty_records(self, mock_s3_client):
         """It should handle empty record list."""
         # Arrange
@@ -451,12 +455,10 @@ class TestWriteJsonlToS3(unittest.TestCase):
         # Assert
         self.assertEqual(result, f"s3://test-bucket/{key}")
         mock_s3_client.put_object.assert_called_once_with(
-            Bucket="test-bucket",
-            Key=key,
-            Body=""
+            Bucket="test-bucket", Key=key, Body=""
         )
 
-    @patch('preprocess.s3_client')
+    @patch("preprocess.s3_client")
     def test_should_handle_complex_nested_records(self, mock_s3_client):
         """It should serialize complex nested structures."""
         # Arrange
@@ -466,7 +468,7 @@ class TestWriteJsonlToS3(unittest.TestCase):
                 "modelInput": {
                     "messages": [{"role": "user", "content": "test"}],
                     "params": {"temperature": 0.7},
-                }
+                },
             }
         ]
         key = "complex/output.jsonl"
@@ -488,17 +490,17 @@ class TestLambdaHandler(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures and patch module-level constants."""
-        if not hasattr(preprocess.wr.s3, 'to_parquet'):
+        if not hasattr(preprocess.wr.s3, "to_parquet"):
             preprocess.wr.s3.to_parquet = lambda *args, **kwargs: None
-        if not hasattr(preprocess.wr.s3, 'read_parquet'):
+        if not hasattr(preprocess.wr.s3, "read_parquet"):
             preprocess.wr.s3.read_parquet = lambda *args, **kwargs: []
-        if not hasattr(preprocess.wr.s3, 'list_objects'):
+        if not hasattr(preprocess.wr.s3, "list_objects"):
             preprocess.wr.s3.list_objects = lambda *args, **kwargs: []
         self.context = Mock()
 
         # Patch BUCKET_NAME if it's None (not set from environment)
         if preprocess.BUCKET_NAME is None:
-            self.bucket_patch = patch('preprocess.BUCKET_NAME', 'test-bucket')
+            self.bucket_patch = patch("preprocess.BUCKET_NAME", "test-bucket")
             self.bucket_patch.start()
             self.addCleanup(self.bucket_patch.stop)
 
@@ -546,7 +548,7 @@ class TestLambdaHandler(unittest.TestCase):
         mock_processor.model_type = "embedding"
         mock_processor.process_input.return_value = {
             "recordId": "test-id",
-            "modelInput": {"inputText": "test"}
+            "modelInput": {"inputText": "test"},
         }
         processor_mock.return_value = mock_processor
 
@@ -572,7 +574,9 @@ class TestLambdaHandler(unittest.TestCase):
         write_mock.assert_called()
         parquet_mock.assert_called()
 
-    @patch('preprocess.pt.prompt_id_to_template', {"test_prompt": "Tell me about {topic}"})
+    @patch(
+        "preprocess.pt.prompt_id_to_template", {"test_prompt": "Tell me about {topic}"}
+    )
     def test_should_process_text_model_with_prompt(self):
         """It should process text models with prompt templates."""
         # Arrange
@@ -587,7 +591,7 @@ class TestLambdaHandler(unittest.TestCase):
         mock_processor.model_type = "text"
         mock_processor.process_input.return_value = {
             "recordId": "test-id",
-            "modelInput": {"messages": [{"role": "user", "content": "test"}]}
+            "modelInput": {"messages": [{"role": "user", "content": "test"}]},
         }
         processor_mock.return_value = mock_processor
 
@@ -629,7 +633,10 @@ class TestLambdaHandler(unittest.TestCase):
         def _yield_chunks(*args, **kwargs):
             del args, kwargs  # Unused
             for i in range(10):
-                yield (i, pd.DataFrame([{"input_text": f"text-{j}"} for j in range(1000)]))
+                yield (
+                    i,
+                    pd.DataFrame([{"input_text": f"text-{j}"} for j in range(1000)]),
+                )
 
         load_mock.side_effect = _yield_chunks
 
@@ -737,7 +744,7 @@ class TestLambdaHandler(unittest.TestCase):
 
             self.assertIn("positive integer", str(context.exception))
 
-    @patch('preprocess.load_dataset')
+    @patch("preprocess.load_dataset")
     def test_should_handle_huggingface_dataset(self, mock_load_dataset):
         """It should process Hugging Face datasets."""
         # Arrange
@@ -769,7 +776,9 @@ class TestLambdaHandler(unittest.TestCase):
         lambda_handler(event, self.context)
 
         # Assert
-        mock_load_dataset.assert_called_with("test/dataset", split="train", streaming=True)
+        mock_load_dataset.assert_called_with(
+            "test/dataset", split="train", streaming=True
+        )
         parquet_mock.assert_called()  # Should save HF data to S3
 
 
@@ -792,7 +801,10 @@ class ResolvePromptConfigurationTests(unittest.TestCase):
             resolve_prompt_configuration("text", {"prompt_id": "does_not_exist"})
         self.assertIn("does_not_exist", str(err.exception))
 
-    @patch('preprocess.pt.prompt_id_to_template', {"joke_about_topic": "Tell a joke about {topic}"})
+    @patch(
+        "preprocess.pt.prompt_id_to_template",
+        {"joke_about_topic": "Tell a joke about {topic}"},
+    )
     def test_known_prompt_returns_required_fields(self) -> None:
         template, fields = resolve_prompt_configuration(
             "text", {"prompt_id": "joke_about_topic"}
